@@ -39,27 +39,11 @@ search_words <- function(data, highlight_words, n_sentences_around = 2) {
     cli::cli_abort("data should be either a DF created by 'read_lyrics' or a json file")
   }
 
-  # DF_temp =
-  #   DF |>
-  #   dplyr::mutate(
-  #     year = ifelse(!is.na(release_date), format(as.Date(release_date, format="%Y-%m-%d"),"%Y"), "?"),
-  #     ID_temp = paste0(artists, "<BR><BR>", title, "<BR><BR>(", year, ")"),
-  #     Song = paste0("<a href='", link, "', target = '_blank'>", ID_temp, "</a>"),
-  #     Lyrics = stringr::str_replace_all(lyrics, "\\n", "<br>"),
-  #     FILTER = grepl(highlight_words, lyrics, ignore.case = TRUE),
-  #   ) |>
-  #   # Show only songs with the words
-  #   dplyr::filter(FILTER == TRUE)|>
-  #   dplyr::select(id, Song, Lyrics)
-  #
 
-  # 33% faster (filter first)
   DF_temp =
     DF |>
     # Show only songs with the words
     dplyr::filter(grepl(highlight_words, lyrics, ignore.case = TRUE))|>
-    # dplyr::mutate(FILTER = grepl(highlight_words, lyrics, ignore.case = TRUE)) |>
-    # dplyr::filter(FILTER == TRUE)|>
     dplyr::mutate(
       year = ifelse(!is.na(release_date), format(as.Date(release_date, format="%Y-%m-%d"),"%Y"), "?"),
       ID_temp = paste0(artists, "<BR><BR>", title, "<BR><BR>(", year, ")"),
@@ -84,24 +68,16 @@ search_words <- function(data, highlight_words, n_sentences_around = 2) {
       dplyr::reframe(WHICH = which(FILTER_sentence == TRUE)) |>
       dplyr::mutate(MIN = WHICH - n_sentences_around,
                     MAX = WHICH + n_sentences_around) |>
-
+      # much faster than rowwise
       dplyr::mutate(N = purrr::map2(MIN, MAX, seq)) |>
       dplyr::select(id, N) |>
       tidyr::unnest(N) |>
       dplyr::distinct(id, N)
-      # # REMEMBER: rowwise is very ineficient
-      # dplyr::rowwise() |>
-      # dplyr::mutate(N = list(seq(from = MIN, to = MAX))) |>
-      # dplyr::select(id, N) |>
-      # tidyr::unnest(N) |>
-      # dplyr::distinct(id, N)
 
 
     DF_filtered_sentences = DF_sentences |>
       dplyr::mutate(FINGERPRINT = paste0(id, "_", N)) |>
-
       dplyr::inner_join(DICC, by = dplyr::join_by(id, N)) |>
-
       dplyr::group_by(id) |>
       dplyr::reframe(Lyrics = paste0(Lyrics, collapse = "<br>")) |>
       dplyr::ungroup()
@@ -140,5 +116,7 @@ search_words <- function(data, highlight_words, n_sentences_around = 2) {
     DT::formatStyle(columns = c(1), 'vertical-align'='top') |>
     DT::formatStyle(columns = c(1), 'text-align'='center')
 
-  return(TABLE)
+  OUTPUT = list(DF_table = DF_table,
+                TABLE = TABLE)
+  return(OUTPUT)
 }
