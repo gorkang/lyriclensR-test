@@ -73,26 +73,50 @@ ui <-
 
 server <- function(input, output) {
 
-  TABLE <- reactive({
+  DATAFRAME <- reactive({
 
     if (is.null(input$artists)) {
       DF_DATA = DF_ALL
     } else {
       DF_DATA = DF_ALL |>
-      dplyr::filter(artist %in% input$artists)
+        dplyr::filter(artist %in% input$artists)
     }
 
-    search_words(
-      data = DF_DATA,
-      highlight_words = input$word,
-      n_sentences_around = input$n_sentences_around)
+  })
 
+  TABLE <- reactive({
+
+    # if (is.null(input$artists)) {
+    #   DF_DATA = DF_ALL
+    # } else {
+    #   DF_DATA = DF_ALL |>
+    #   dplyr::filter(artist %in% input$artists)
+    # }
+
+    if (input$word == "") {
+
+      NULL
+
+    } else {
+
+      search_words(
+        data = DATAFRAME(),
+        highlight_words = input$word,
+        n_sentences_around = input$n_sentences_around)
+    }
   })
 
 
   output$songs = renderText({
 
+    if (input$word == "") {
+
+      paste("Number of songs:", formatC(nrow(DATAFRAME()), big.mark=","))
+
+
+    } else {
     paste("Number of songs:", formatC(nrow(TABLE()$x$data), big.mark=","))
+    }
   })
 
   output$mytable = DT::renderDataTable({

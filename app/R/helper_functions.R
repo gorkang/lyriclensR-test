@@ -1,9 +1,24 @@
-read_all_lyrics <- function(lyrics, write_output = FALSE, daemons = 4) {
+read_all_lyrics <- function(lyrics, write_output = FALSE, language = NULL, daemons = 4) {
 
   mirai::daemons(0)
   mirai::daemons(daemons)
-  DF = lyrics |> purrr::map_df(purrr::in_parallel(\(x) read_lyrics(x), read_lyrics = read_lyrics))
+  DF_temp = lyrics |> purrr::map_df(purrr::in_parallel(\(x) read_lyrics(x), read_lyrics = read_lyrics))
   mirai::daemons(0)
+
+  if (!is.null(language)) {
+
+    # Avoid using same name as column
+    language_str = language
+
+    DF = DF_temp |> dplyr::filter(language %in% language_str)
+    Available_langs = DF_temp |> dplyr::count(language) |> tidyr::drop_na(language) |> dplyr::arrange(dplyr::desc(n)) |> head(5) |> dplyr::pull(language)
+
+    if (nrow(DF) == 0) cli::cli_alert_info(paste0(language, " not found. The most common languages are: ", paste0(Available_langs, collapse = ", ")))
+
+  } else {
+    DF = DF_temp
+  }
+
 
   if (write_output) {
     # data.table::fwrite(DF, file = "outputs/DF_lyrics/DF_lyrics.csv", nThread = daemons)
@@ -40,6 +55,7 @@ read_lyrics <- function(lyrics) {
 
       tibble::tibble(
         id = DF$songs[[.x]]$id,
+        language = DF$songs[[.x]]$language,
         release_date = DF$songs[[.x]]$release_date,
         pageviews = DF$songs[[.x]]$stats$pageviews,
         lyrics_state = DF$songs[[.x]]$lyrics_state,

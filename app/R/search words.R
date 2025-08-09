@@ -15,7 +15,7 @@
 #' @examples  search_words(data = "outputs/lyrics/Lyrics_MykeTowers.json", highlight_words = "amor")
 search_words <- function(data, highlight_words, n_sentences_around = 2) {
 
-  # filename = here::here("outputs/DF_lyrics/DF_lyrics.csv")
+  # filename = here::here("outputs/DF_lyrics/DF_lyrics.gz")
   # data = data.table::fread(filename)
 
   # data = "outputs/lyrics/Lyrics_MykeTowers.json"
@@ -56,9 +56,10 @@ search_words <- function(data, highlight_words, n_sentences_around = 2) {
   # 33% faster (filter first)
   DF_temp =
     DF |>
-    dplyr::mutate(FILTER = grepl(highlight_words, lyrics, ignore.case = TRUE)) |>
     # Show only songs with the words
-    dplyr::filter(FILTER == TRUE)|>
+    dplyr::filter(grepl(highlight_words, lyrics, ignore.case = TRUE))|>
+    # dplyr::mutate(FILTER = grepl(highlight_words, lyrics, ignore.case = TRUE)) |>
+    # dplyr::filter(FILTER == TRUE)|>
     dplyr::mutate(
       year = ifelse(!is.na(release_date), format(as.Date(release_date, format="%Y-%m-%d"),"%Y"), "?"),
       ID_temp = paste0(artists, "<BR><BR>", title, "<BR><BR>(", year, ")"),
@@ -80,16 +81,20 @@ search_words <- function(data, highlight_words, n_sentences_around = 2) {
 
     DICC =
       DF_sentences |>
-      dplyr::reframe(WHICH = c(which(FILTER_sentence == TRUE))) |>
+      dplyr::reframe(WHICH = which(FILTER_sentence == TRUE)) |>
       dplyr::mutate(MIN = WHICH - n_sentences_around,
                     MAX = WHICH + n_sentences_around) |>
 
-      # REMEMBER: rowwise is very ineficient
-      dplyr::rowwise() |>
-      dplyr::mutate(N = list(seq(from = MIN, to = MAX))) |>
+      dplyr::mutate(N = purrr::map2(MIN, MAX, seq)) |>
       dplyr::select(id, N) |>
       tidyr::unnest(N) |>
       dplyr::distinct(id, N)
+      # # REMEMBER: rowwise is very ineficient
+      # dplyr::rowwise() |>
+      # dplyr::mutate(N = list(seq(from = MIN, to = MAX))) |>
+      # dplyr::select(id, N) |>
+      # tidyr::unnest(N) |>
+      # dplyr::distinct(id, N)
 
 
     DF_filtered_sentences = DF_sentences |>
